@@ -1,5 +1,7 @@
+import ItemHorizontal from "@/components/ItemHorizontal";
+
 function AboutPage() {
-  return <div>Aboutpage</div>;
+  return <div>{/* <ItemHorizontal /> */}</div>;
 }
 
 export default AboutPage;

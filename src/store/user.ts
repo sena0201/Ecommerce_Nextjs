@@ -1,40 +1,106 @@
 import { create } from "zustand";
+import axios, { handelError } from "../Api/axiosConfig";
+import { toast } from "react-toastify";
+import { AxiosError } from "axios";
 
-type User = {
-  id: number;
+export type User = {
   username: string;
-  password: string;
+  firstname: string;
+  lastname: string;
+  token: string;
 };
 
 type Action = {
-  users: User[]; //
-  addUser: (user: User) => void;
-  removeUser: (id: number) => void;
-  editUser: (
-    id: number,
+  user: User | null; //
+  Login: (
     username: string,
     password: string
-  ) => void;
+  ) => Promise<boolean>;
+  Logout: () => Promise<void>;
+  Register: (
+    username: string,
+    password: string,
+    confirmPassword: string,
+    firstname: string,
+    lastname: string,
+    email: string,
+    phonenumber?: string,
+    photo?: string
+  ) => Promise<boolean>;
+};
+
+const GetUserFromLocalStorage = () => {
+  try {
+    const userData = localStorage.getItem("user");
+    return userData ? JSON.parse(userData) : null;
+  } catch (error) {
+    return null;
+  }
 };
 
 export const UserStore = create<Action>((set) => ({
-  users: [],
-  addUser: (user: User) =>
-    set((state) => ({ users: [...state.users, user] })),
-  removeUser: (id: number) =>
-    set((state) => ({
-      users: state.users.filter((user) => user.id !== id),
-    })),
-  editUser: (
-    id: number,
+  user: GetUserFromLocalStorage(),
+  Login: async (username: string, password: string) => {
+    try {
+      const res = await axios.post("/User/Login", {
+        username,
+        password,
+      });
+      if (res.status === 200) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify(res.data)
+        );
+        set({
+          user: res.data,
+        });
+        toast.success("Login successfull");
+        return true;
+      }
+    } catch (error) {
+      handelError(error);
+    }
+    return false;
+  },
+  Logout: async () => {
+    localStorage.removeItem("user");
+    set({
+      user: GetUserFromLocalStorage(),
+    });
+    toast.warn("Logout");
+  },
+  Register: async (
     username: string,
-    password: string
-  ) =>
-    set((state) => ({
-      users: state.users.map((user) =>
-        user.id === id
-          ? { ...user, username, password }
-          : user
-      ),
-    })),
+    password: string,
+    confirmPassword: string,
+    firstname: string,
+    lastname: string,
+    email: string,
+    phonenumber?: string,
+    photo?: string
+  ) => {
+    try {
+      if (password === confirmPassword) {
+        const res = await axios.post("/User", {
+          username,
+          password,
+          firstname,
+          lastname,
+          email,
+          phonenumber,
+          photo,
+        });
+        if (res.status === 201) {
+          toast.success("Register successfull");
+          return true;
+        }
+      } else {
+        toast.warning("Error");
+        return false;
+      }
+    } catch (error) {
+      handelError(error);
+    }
+    return false;
+  },
 }));

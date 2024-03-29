@@ -1,15 +1,13 @@
+import { Product } from "@/types/product";
 import { create } from "zustand";
 
-export type Product = {
-  productId: number;
-  productName: string;
+export type ProductOfCart = Product & {
   quantity: number;
-  price: number;
 };
 
 type Cart = {
-  cart: Product[];
-  AddToCart: (product: Product) => void;
+  cart: ProductOfCart[];
+  AddToCart: (product: ProductOfCart) => void;
   RemoveFromCart: (id: number) => void;
   incrementQuantity: (id: number) => void;
   decrementQuantity: (id: number) => void;
@@ -18,20 +16,28 @@ type Cart = {
 
 export const useCartStore = create<Cart>((set) => ({
   cart: [],
-  AddToCart: (product: Product) =>
-    set((state) => ({
-      cart: [...state.cart, product],
-    })),
+  AddToCart: (product: ProductOfCart) =>
+    set((state) => {
+      const existingItem = state.cart.find(
+        (item) => item.productID === product.productID
+      );
+      if (existingItem) {
+        existingItem.quantity += 1;
+        return { cart: [...state.cart] };
+      } else {
+        return { cart: [...state.cart, product] };
+      }
+    }),
   RemoveFromCart: (id: number) =>
     set((state) => ({
       cart: state.cart.filter(
-        (product) => product.productId !== id
+        (product) => product.productID !== id
       ),
     })),
   incrementQuantity: (id: number) =>
     set((state) => ({
       cart: state.cart.map((product) =>
-        product.productId === id
+        product.productID === id
           ? { ...product, quantity: product.quantity + 1 }
           : product
       ),
@@ -39,7 +45,7 @@ export const useCartStore = create<Cart>((set) => ({
   decrementQuantity: (id: number) =>
     set((state) => ({
       cart: state.cart.map((product) =>
-        product.productId === id
+        product.productID === id && product.quantity > 1
           ? { ...product, quantity: product.quantity - 1 }
           : product
       ),
@@ -47,7 +53,7 @@ export const useCartStore = create<Cart>((set) => ({
   updateQuantity: (id: number, quantity: number) =>
     set((state) => ({
       cart: state.cart.map((product) =>
-        product.productId === id
+        product.productID === id
           ? { ...product, quantity }
           : product
       ),

@@ -3,21 +3,35 @@ import { IoMdShare } from "react-icons/io";
 import { BsArrowLeftRight } from "react-icons/bs";
 import { FaRegHeart } from "react-icons/fa";
 import Image from "next/image";
-import { Product } from "@/store/cart";
+import { Product } from "@/types/product";
+import { ProductOfCart } from "@/store/cart";
+import { useRouter } from "next/navigation";
+import { FaArrowRightLong } from "react-icons/fa6";
 
-type Item = {
-  AddToCart: (product: Product) => void;
+type Item = Product & {
+  AddToCart: (product: ProductOfCart) => void;
 };
 
 function Item(props: Item) {
-  const { AddToCart } = props;
+  const router = useRouter();
+  const {
+    productID,
+    productName,
+    price,
+    discount,
+    isNew,
+    AddToCart,
+  } = props;
   const handleAddToCart = () => {
     AddToCart({
-      productId: 123,
-      productName: "abc",
-      quantity: 12,
-      price: 1000,
+      productID: productID,
+      productName: productName,
+      price: price,
+      quantity: 1,
     });
+  };
+  const handleClick = (productId: number) => {
+    router.push(`/shop/product/${productId}`);
   };
   return (
     <div className="bg-[#F4F5F7] relative group">
@@ -43,23 +57,40 @@ function Item(props: Item) {
               Like
             </button>
           </div>
+          <div>
+            <button
+              className="text-white mt-20 flex items-center gap-2"
+              onClick={() => handleClick(productID)}
+            >
+              <span className="">View Detail</span>
+              <FaArrowRightLong />
+            </button>
+          </div>
         </div>
       </div>
       <div className="overflow-hidden relative">
-        <div className="absolute top-6 right-6 bg-red rounded-full w-10 h-10 text-sm font-semibold text-white grid place-items-center group-hover:hidden">
-          -50%
-        </div>
+        {discount && (
+          <div className="absolute top-6 right-6 bg-red rounded-full w-10 h-10 text-sm font-semibold text-white grid place-items-center group-hover:hidden">
+            -{discount}%
+          </div>
+        )}
+        {isNew && (
+          <div className="absolute top-6 right-6 bg-green rounded-full w-10 h-10 text-sm font-semibold text-white grid place-items-center group-hover:hidden">
+            New
+          </div>
+        )}
+
         <Image src={img1} alt="img4" className="w-full" />
       </div>
       <div className="px-4 py-6">
         <h3 className="text-2xl font-semibold">
-          Syltherine
+          {productName}
         </h3>
         <p className="font-sm text-gray my-4">
           Stylish cafe chair
         </p>
         <p className="font-semibold">
-          Rp 2.500.000{" "}
+          {price}
           <span className="line-through opacity-50 text-sm">
             Rp 3.500.000
           </span>

@@ -8,12 +8,62 @@ import { MdOutlineNavigateNext } from "react-icons/md";
 import product from "../../assets/images/image-3.png";
 import { MdDelete } from "react-icons/md";
 import { useCartStore } from "@/store/cart";
+import { ChangeEvent, useState } from "react";
 
 function CartPage() {
   const cart = useCartStore((state) => state.cart);
+  const [checkedAll, setCheckedAll] =
+    useState<boolean>(false);
+  const [newCart, setNewCart] = useState(
+    cart.map((item) => {
+      return { ...item, checked: false };
+    })
+  );
   const removeFromCart = useCartStore(
     (state) => state.RemoveFromCart
   );
+  const increment = useCartStore(
+    (state) => state.incrementQuantity
+  );
+  const decrement = useCartStore(
+    (state) => state.decrementQuantity
+  );
+
+  const handleIncrement = (id: number) => {
+    increment(id);
+  };
+
+  const handleDecrement = (id: number) => {
+    decrement(id);
+    cart.forEach((item) => {
+      if (item.productID === id && item.quantity === 0) {
+        removeFromCart(id);
+      }
+    });
+  };
+
+  const handleCheckedAll = (
+    e: ChangeEvent<HTMLInputElement>
+  ) => {
+    setCheckedAll(!checkedAll);
+    setNewCart(
+      newCart.map((item) =>
+        e.target.checked == true
+          ? { ...item, checked: true }
+          : { ...item, checked: false }
+      )
+    );
+  };
+
+  const handleChecked = (id: number) => {
+    setNewCart(
+      newCart.map((item) =>
+        item.productID === id
+          ? { ...item, checked: !item.checked }
+          : item
+      )
+    );
+  };
 
   const handleRemove = (id: number) => {
     removeFromCart(id);
@@ -38,11 +88,18 @@ function CartPage() {
         </div>
       </div>
       <Wrapper>
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-3 md:grid-cols-2 md:grid-rows-2 sm:grid-cols-1 sm:grid-rows-2 xs:grid-cols-1 xs:grid-rows-2 my-5">
           <div className="col-span-2">
             <table className="w-full">
               <thead>
                 <tr className="bg-[#F9F1E7]">
+                  <th className="w-[50px]">
+                    <input
+                      type="checkbox"
+                      checked={checkedAll}
+                      onChange={handleCheckedAll}
+                    />
+                  </th>
                   <th className=" py-4">Product</th>
                   <th className="text-start py-4">Price</th>
                   <th className="text-start py-4">
@@ -55,19 +112,51 @@ function CartPage() {
                 </tr>
               </thead>
               <tbody>
-                {cart.map((item) => (
-                  <tr key={item.productId}>
-                    <td className="flex justify-evenly items-center my-6">
+                {newCart.map((item) => (
+                  <tr key={item.productID}>
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={() =>
+                          handleChecked(item.productID)
+                        }
+                      />
+                    </td>
+                    <td className="flex flex-wrap items-center my-6">
                       <Image
                         src={product}
                         alt="Logo"
                         className="w-[100px]"
                       />
-                      <span>{item.productName}</span>
+                      <span className="ml-4">
+                        {item.productName}
+                      </span>
                     </td>
                     <td className="my-6">{item.price}</td>
                     <td className="my-6">
-                      {item.quantity}
+                      <button
+                        onClick={() =>
+                          handleDecrement(item.productID)
+                        }
+                        className="text-xl border-[1px] px-2 rounded"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="text"
+                        name="quantity"
+                        value={item.quantity}
+                        className="border-none outline-none px-4 py-2 w-20 text-center"
+                      />
+                      <button
+                        onClick={() =>
+                          handleIncrement(item.productID)
+                        }
+                        className="text-xl border-[1px] px-2 rounded"
+                      >
+                        +
+                      </button>
                     </td>
                     <td className="my-6">
                       {item.price * item.quantity}
@@ -75,7 +164,7 @@ function CartPage() {
                     <td className="text-xl text-primary">
                       <button
                         onClick={() =>
-                          handleRemove(item.productId)
+                          handleRemove(item.productID)
                         }
                       >
                         <MdDelete />
@@ -86,25 +175,31 @@ function CartPage() {
               </tbody>
             </table>
           </div>
-          <div className="ml-12">
-            <div className="bg-[#F9F1E7] flex flex-col items-center py-4 px-8">
-              <h1 className="text-3xl mb-8">Cart Totals</h1>
-              <div className="w-1/2 flex justify-between mb-4">
+          <div className="ml-12 md:col-start-2 md:m-0 sm:m-0 xs:m-0">
+            <div className="bg-[#F9F1E7] flex flex-col items-center py-4 px-8 lg:px-6">
+              <h1 className="text-3xl mb-8 md:text-2xl">
+                Cart Totals
+              </h1>
+              <div className="w-1/2 flex justify-between mb-4 lg:w-full md:w-full sm:w-full xs:w-full">
                 <p>Subtotal</p>{" "}
                 <p>
-                  {cart.reduce(
+                  {newCart.reduce(
                     (acc, item) =>
-                      acc + item.price * item.quantity,
+                      item.checked
+                        ? acc + item.price * item.quantity
+                        : acc,
                     0
                   )}
                 </p>
               </div>
-              <div className="w-1/2 flex justify-between mb-6">
+              <div className="w-1/2 flex justify-between mb-6 lg:w-full md:w-full sm:w-full xs:w-full">
                 <p>Total</p>{" "}
                 <p>
-                  {cart.reduce(
+                  {newCart.reduce(
                     (acc, item) =>
-                      acc + item.price * item.quantity,
+                      item.checked
+                        ? acc + item.price * item.quantity
+                        : acc,
                     0
                   )}
                 </p>

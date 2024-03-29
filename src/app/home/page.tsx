@@ -91,14 +91,19 @@ function HomePage() {
             Our Products
           </h1>
           <div className="grid grid-cols-4 lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-2 xs:grid-cols-1 gap-8 mt-14">
+            <Item
+              productID={123}
+              productName="abc"
+              price={1000}
+              AddToCart={AddToCart}
+            />
+            {/* <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
-            <Item AddToCart={AddToCart} />
-            <Item AddToCart={AddToCart} />
-            <Item AddToCart={AddToCart} />
+            <Item AddToCart={AddToCart} /> */}
           </div>
           <div className="flex justify-center mt-8">
             <button className="text-primary font-semibold border-2 border-primary px-8 py-3">
