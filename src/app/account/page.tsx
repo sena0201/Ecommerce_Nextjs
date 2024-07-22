@@ -7,7 +7,15 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
-import axios from "../../Api/axiosConfig";
+import AxiosClient, {
+  SERVER_NAME,
+} from "../../Api/axiosConfig";
+import Image from "next/image";
+import { useMutation } from "@tanstack/react-query";
+import { Login, Register } from "@/Api/user-api";
+import { UserType } from "@/types/user/user.type";
+import { toast } from "react-toastify";
+import { MoonLoader } from "react-spinners";
 
 type Account = {
   username: string;
@@ -16,18 +24,42 @@ type Account = {
   firstname: string;
   lastname: string;
   email: string;
-  phonenumber?: string;
+  phonenumber: string;
   photo: FileList;
 };
 
 function AccountPage() {
-  const Register = UserStore((state) => state.Register);
-  const Login = UserStore((state) => state.Login);
-  const User = UserStore((state) => state.user);
   const router = useRouter();
-
+  const getUserFromLocastorage = UserStore(
+    (state) => state.GetUserFromLocalStorage
+  );
   const [isRegister, setIsRegister] =
     useState<boolean>(false);
+  const loginMutation = useMutation({
+    mutationFn: (data: {
+      usename: string;
+      password: string;
+    }) => Login(data.usename, data.password),
+    onSuccess: (data) => {
+      localStorage.setItem("user", JSON.stringify(data));
+      getUserFromLocastorage();
+      router.push("/");
+    },
+    onError: () => {
+      toast.error("Username or password incorrect");
+    },
+  });
+  const registerMutation = useMutation({
+    mutationFn: (data: UserType) => Register(data),
+    onSuccess: () => {
+      toast.success("Register success!");
+      setIsRegister(false);
+    },
+    onError: () => {
+      toast.error("Username available");
+    },
+  });
+  const [imageUrl, setImageUrl] = useState<string>("");
 
   const registerSchema = yup.object().shape({
     username: yup
@@ -37,6 +69,19 @@ function AccountPage() {
     password: yup
       .string()
       .min(6, "Username must have at least 6 characters")
+      .matches(
+        /[a-z]/,
+        "Mật khẩu phải chứa ít nhất 1 chữ thường"
+      )
+      .matches(
+        /[A-Z]/,
+        "Mật khẩu phải chứa ít nhất 1 chữ hoa"
+      )
+      .matches(/[0-9]/, "Mật khẩu phải chứa ít nhất 1 số")
+      .matches(
+        /[!@#$%^&*()\\[\]{}\-_+=~`|:;\"'<>,./?]/,
+        "Mật khẩu phải chứa ít nhất 1 kí tự đặc biệt"
+      )
       .required("This field is required"),
     confirmPassword: yup
       .string()
@@ -53,7 +98,7 @@ function AccountPage() {
       .email()
       .required("This field is required"),
     phonenumber: yup.string().nullable(),
-    photo: yup.mixed().nullable(),
+    photo: yup.mixed().required("This field is required"),
   });
   const loginSchema = yup.object().shape({
     username: yup
@@ -80,28 +125,45 @@ function AccountPage() {
 
   const onSubmit = async (data: Account) => {
     if (!isRegister) {
-      const check = await Login(
-        data.username,
-        data.password
-      );
-      if (check) {
-        router.push("/");
-      }
+      loginMutation.mutate({
+        usename: data.username,
+        password: data.password,
+      });
     }
     if (isRegister) {
-      // const check = await Register(
-      //   data.username,
-      //   data.password,
-      //   data.confirmPassword,
-      //   data.firstname,
-      //   data.lastname,
-      //   data.email,
-      //   data.phonenumber,
-      //   data.photo
-      // );
-      // if (check) {
-      //   handleToggle();
-      // }
+      if (imageUrl !== "") {
+        registerMutation.mutate({
+          username: data.username,
+          password: data.password,
+          firstName: data.firstname,
+          lastName: data.lastname,
+          Email: data.email,
+          phoneNumber: data.phonenumber,
+          photo: imageUrl,
+        });
+      } else {
+        toast.warning("Please select a photo");
+      }
+    }
+  };
+
+  const hanleSelectImage = async (
+    e: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await AxiosClient.post(
+        "/Upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      setImageUrl(res.data);
     }
   };
 
@@ -109,7 +171,7 @@ function AccountPage() {
     <Wrapper>
       <div className="py-8 grid place-items-center">
         <form
-          className="border-[1px] border-primary w-1/3 min-w-[350px] p-5"
+          className="border-[1px] border-primary w-1/3 lg:w-1/2 md:w-1/2 sm:w-11/12 xs:w-11/12 p-5"
           onSubmit={handleSubmit(onSubmit)}
         >
           <div>
@@ -238,18 +300,32 @@ function AccountPage() {
                 type="file"
                 className="w-full border-[1px] border-orange-200 rounded outline-none p-2"
                 {...register("photo")}
+                onChange={hanleSelectImage}
               />
-              <div></div>
-              {errors.photo &&
-                touchedFields.photo?.valueOf && (
-                  <p className="text-xs text-red mt-2 ml-2">
-                    {/* {errors?.photo.message} */}
-                  </p>
+              <div className="w-[200px] h-[200px] rounded border-solid border-2 border-primary overflow-hidden">
+                {imageUrl && (
+                  <Image
+                    src={SERVER_NAME + imageUrl}
+                    alt=""
+                    width={200}
+                    height={200}
+                    className="w-full h-full"
+                  />
                 )}
+              </div>
+              {errors.photo && (
+                <p className="text-xs text-red mt-2 ml-2">
+                  {errors.photo.message}
+                </p>
+              )}
             </div>
           )}
           <div className="mt-4 flex justify-between items-center">
-            <button className="border-none outline-none bg-primary text-white px-6 py-2">
+            <button className="border-none outline-none bg-primary text-white px-6 py-3 flex items-center gap-2">
+              {registerMutation.isPending ||
+                (loginMutation.isPending && (
+                  <MoonLoader color="#ffffff" size={20} />
+                ))}
               {isRegister ? "Register" : "Login"}
             </button>
             <div>

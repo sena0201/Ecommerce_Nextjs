@@ -11,9 +11,6 @@ import Item from "@/components/Item";
 import { useCartStore } from "@/store/cart";
 
 function HomePage() {
-  const AddToCart = useCartStore(
-    (state) => state.AddToCart
-  );
   return (
     <div>
       <div className="w-full h-auto relative">
@@ -91,12 +88,12 @@ function HomePage() {
             Our Products
           </h1>
           <div className="grid grid-cols-4 lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-2 xs:grid-cols-1 gap-8 mt-14">
-            <Item
+            {/* <Item
               productID={123}
               productName="abc"
               price={1000}
-              AddToCart={AddToCart}
-            />
+              // AddToCart={AddToCart}
+            /> */}
             {/* <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />
             <Item AddToCart={AddToCart} />

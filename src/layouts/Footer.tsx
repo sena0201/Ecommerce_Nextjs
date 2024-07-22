@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Wrapper from "./Wrapper";
+import Wrapper from "../components/Wrapper";
 
 function Footer() {
   return (

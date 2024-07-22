@@ -1,14 +1,23 @@
 "use client";
 
-import Wrapper from "../../../../components/Wrapper";
-import { MdOutlineNavigateNext } from "react-icons/md";
-import { FaStar } from "react-icons/fa6";
-import { ChangeEvent, useState } from "react";
+import { useGetByID } from "@/hooks/useProduct";
 import { useCartStore } from "@/store/cart";
-import { FaFacebook, FaLinkedin } from "react-icons/fa";
+import { ChangeEvent, useEffect, useState } from "react";
 import { AiFillTwitterCircle } from "react-icons/ai";
-import { useShopStore } from "@/store/shop";
-import { Product } from "@/types/product";
+import { FaFacebook, FaLinkedin } from "react-icons/fa";
+import { FaStar } from "react-icons/fa6";
+import { MdOutlineNavigateNext } from "react-icons/md";
+import Wrapper from "../../../../components/Wrapper";
+import Image from "next/image";
+import { SERVER_NAME } from "@/Api/axiosConfig";
+import Link from "next/link";
+import {
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { CartType } from "@/types/cart/cart.type";
+import { addItem } from "@/Api/cart-api";
+import { UserStore } from "@/store/user";
 import { toast } from "react-toastify";
 
 function ProductInformation({
@@ -16,19 +25,25 @@ function ProductInformation({
 }: {
   params: { productId: string };
 }) {
-  const products = useShopStore((state) => state.products);
-  const product = products.find(
-    (product) =>
-      product.productID === parseInt(params.productId)
+  const user = UserStore((state) => state.user);
+  const { data: product, isLoading } = useGetByID(
+    parseInt(params.productId)
   );
+  const queryClient = useQueryClient();
+  const [mainPhoto, setMainPhoto] = useState<string>("");
   const sizes = ["L", "XL", "XS"];
   const colors = ["primary", "red", "green"];
-  const AddToCart = useCartStore(
-    (state) => state.AddToCart
-  );
+
   const [quantity, setQuantity] = useState<number>(1);
   const [activeSize, setActiveSize] = useState("L");
   const [activeColor, setActiveColor] = useState("primary");
+  useEffect(() => {
+    setMainPhoto(
+      product?.photos[0].url
+        ? SERVER_NAME + product?.photos[0].url
+        : ""
+    );
+  }, [product]);
   const handleIncrement = () => {
     setQuantity(quantity + 1);
   };
@@ -51,21 +66,44 @@ function ProductInformation({
       }
     }
   };
-  const handleAddToCart = (product?: Product) => {
-    if (product) {
-      AddToCart({
-        ...product,
-        quantity: quantity,
+  const AddToCartMutation = useMutation({
+    mutationFn: (
+      data: Omit<CartType, "cartId" | "product">
+    ) => addItem(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["carts", user?.userId],
       });
-    } else {
+      toast.success("Add success!");
+    },
+    onError: () => {
       toast.error("Error");
-    }
-  };
+    },
+  });
   const handleChangeSize = (size: string) => {
     setActiveSize(size);
   };
   const handleChangeColor = (color: string) => {
     setActiveColor(color);
+  };
+  const handleChangeMainPhoto = (id: number) => {
+    product?.photos.forEach((photo) => {
+      if (photo.photoId === id) {
+        setMainPhoto(SERVER_NAME + photo.url);
+      }
+    });
+  };
+  const handleAddToCart = () => {
+    if (user) {
+      let data: Omit<CartType, "cartId" | "product"> = {
+        productId: product?.productId as number,
+        quantity: quantity,
+        userId: user?.userId as number,
+      };
+      AddToCartMutation.mutate(data);
+    } else {
+      toast.warning("Login please");
+    }
   };
   return (
     <>
@@ -77,10 +115,12 @@ function ProductInformation({
                 Home
               </span>{" "}
               <MdOutlineNavigateNext />{" "}
-              <span className="text-gray">Shop</span>
+              <Link href={"/shop"} className="text-gray">
+                Shop
+              </Link>
               <MdOutlineNavigateNext />{" "}
               <span className="border-l-2 border-gray pl-5 ml-4">
-                Asgaard sofa
+                {product?.productName}
               </span>
             </p>
           </div>
@@ -89,15 +129,34 @@ function ProductInformation({
       <Wrapper>
         <div className="flex gap-20 mt-10">
           <div className="flex w-1/2 gap-5">
-            <div className="flex flex-wrap gap-5 w-[120px] max-h-[500px] overflow-auto">
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
-              <div className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"></div>
+            <div className="flex flex-col gap-5 w-[120px] max-h-[500px] overflow-auto">
+              {product?.photos.map((photo) => (
+                <div
+                  key={photo.photoId}
+                  className="bg-[#F9F1E7] w-[80px] h-[80px] rounded overflow-hidden"
+                  onClick={() =>
+                    handleChangeMainPhoto(photo.photoId)
+                  }
+                >
+                  <Image
+                    src={SERVER_NAME + photo.url}
+                    alt=""
+                    width={100}
+                    height={100}
+                    className="w-full h-full"
+                  />
+                </div>
+              ))}
             </div>
-            <div className="bg-[#F9F1E7] max-h-[500px] w-full"></div>
+            <div className="bg-[#F9F1E7] max-h-[500px] w-full">
+              <Image
+                src={mainPhoto}
+                alt=""
+                width={100}
+                height={100}
+                className="w-full h-full"
+              />
+            </div>
           </div>
           <div className="w-1/2">
             <div className="pb-10 border-b-2 border-gray border-opacity-50">
@@ -105,7 +164,7 @@ function ProductInformation({
                 {product?.productName}
               </h1>
               <p className="text-gray text-2xl">
-                {product?.price}
+                {product?.price.toLocaleString("vi-VN")}
               </p>
               <div className="flex gap-2 items-center mt-4">
                 <FaStar className="text-yellow-400" />
@@ -124,7 +183,7 @@ function ProductInformation({
                 well-balanced audio which boasts a clear
                 midrange and extended highs for a sound.
               </p>
-              <h6 className="opacity-50 mt-5">Size</h6>
+              {/* <h6 className="opacity-50 mt-5">Size</h6>
               <div className="flex gap-2 my-4">
                 {sizes.map((size) => (
                   <button
@@ -139,15 +198,7 @@ function ProductInformation({
                     {size}
                   </button>
                 ))}
-                {/* <button className="w-[30px] h-[30px] text-sm rounded bg-[#F9F1E7] text-black">
-                    L
-                  </button>
-                  <button className="w-[30px] h-[30px] text-sm rounded bg-[#F9F1E7] text-black">
-                    XL
-                  </button>
-                  <button className="w-[30px] h-[30px] text-sm rounded bg-[#F9F1E7] text-black">
-                    XS
-                  </button> */}
+                
               </div>
               <h6 className="opacity-50">Color</h6>
               <div className="flex gap-2 my-4">
@@ -162,10 +213,8 @@ function ProductInformation({
                     }
                   ></button>
                 ))}
-                {/* <button className="w-[30px] h-[30px] bg-primary rounded-full outline outline-offset-2 outline-primary"></button>
-                  <button className="w-[30px] h-[30px] bg-red rounded-full"></button>
-                  <button className="w-[30px] h-[30px] bg-green rounded-full"></button> */}
-              </div>
+                
+              </div> */}
               <div className="flex gap-5 flex-wrap my-8">
                 <div className=" flex px-4 py-2 border-2 w-fit border-gray rounded-lg">
                   <button
@@ -190,7 +239,7 @@ function ProductInformation({
                   </button>
                 </div>
                 <button
-                  onClick={() => handleAddToCart(product)}
+                  onClick={handleAddToCart}
                   className="border-2 w-fit border-gray rounded-lg px-4 py-2"
                 >
                   Add To Cart

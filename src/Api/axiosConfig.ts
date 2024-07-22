@@ -18,12 +18,14 @@ export const handelError = (error: any) => {
   }
 };
 
-const instance = axios.create({
-  baseURL: "https://localhost:44303/api",
+export const SERVER_NAME = "https://localhost:44376/";
+
+const AxiosClient = axios.create({
+  baseURL: `${SERVER_NAME}api`,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-export default instance;
+export default AxiosClient;

@@ -1,80 +1,184 @@
 "use client";
 
 import Wrapper from "@/components/Wrapper";
-import Image from "next/image";
-import img from "../../assets/images/Rectangle_1.png";
-import logo from "../../assets/images/logo.png";
-import { MdOutlineNavigateNext } from "react-icons/md";
-import product from "../../assets/images/image-3.png";
-import { MdDelete } from "react-icons/md";
+import { useCarts } from "@/hooks/useCart";
 import { useCartStore } from "@/store/cart";
-import { ChangeEvent, useState } from "react";
+import { UserStore } from "@/store/user";
+import { ProductType } from "@/types/product/product.type";
+import Image from "next/image";
+import { ChangeEvent, useEffect, useState } from "react";
+import {
+  MdDelete,
+  MdOutlineNavigateNext,
+} from "react-icons/md";
+import img from "../../assets/images/Rectangle_1.png";
+import product from "../../assets/images/image-3.png";
+import logo from "../../assets/images/logo.png";
+import {
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { removeItem, updateItem } from "@/Api/cart-api";
+import { toast } from "react-toastify";
+import { SERVER_NAME } from "@/Api/axiosConfig";
+import { CartType } from "@/types/cart/cart.type";
+import { MoonLoader } from "react-spinners";
+import { createOrder } from "@/Api/order-api";
+import {
+  OrderDetail,
+  createOrderDetail,
+} from "@/Api/order-detail-api";
+import { useRouter } from "next/navigation";
+
+type Item = {
+  cartId: number;
+  quantity: number;
+  product: ProductType;
+  checked: boolean;
+};
 
 function CartPage() {
-  const cart = useCartStore((state) => state.cart);
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const User = UserStore((state) => state.user);
+  const { data: Carts } = useCarts(User?.userId);
   const [checkedAll, setCheckedAll] =
     useState<boolean>(false);
-  const [newCart, setNewCart] = useState(
-    cart.map((item) => {
-      return { ...item, checked: false };
-    })
-  );
-  const removeFromCart = useCartStore(
-    (state) => state.RemoveFromCart
-  );
-  const increment = useCartStore(
-    (state) => state.incrementQuantity
-  );
-  const decrement = useCartStore(
-    (state) => state.decrementQuantity
-  );
+  const [newCart, setNewCart] =
+    useState<(CartType & { checked: boolean })[]>();
+  const removeItemMutation = useMutation({
+    mutationFn: (data: number) => removeItem(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["carts", User?.userId],
+      });
+    },
+    onError: () => {
+      toast.error("Error");
+    },
+  });
 
-  const handleIncrement = (id: number) => {
-    increment(id);
-  };
+  const UpdateQuantityMutation = useMutation({
+    mutationFn: (data: {
+      cartId: number;
+      quantity: number;
+    }) => updateItem(data.cartId, data.quantity),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["carts", User?.userId],
+      });
+    },
+  });
 
-  const handleDecrement = (id: number) => {
-    decrement(id);
-    cart.forEach((item) => {
-      if (item.productID === id && item.quantity === 0) {
-        removeFromCart(id);
-      }
-    });
-  };
+  const CreateOrderDetailMutation = useMutation({
+    mutationFn: (data: OrderDetail) =>
+      createOrderDetail(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["carts", User?.userId],
+      });
+      toast.success("Success");
+    },
+    onError: () => {
+      toast.error("Error");
+    },
+  });
 
   const handleCheckedAll = (
     e: ChangeEvent<HTMLInputElement>
   ) => {
     setCheckedAll(!checkedAll);
     setNewCart(
-      newCart.map((item) =>
-        e.target.checked == true
+      newCart?.map((item) =>
+        e.target.checked === true
           ? { ...item, checked: true }
           : { ...item, checked: false }
       )
     );
   };
 
-  const handleChecked = (id: number) => {
-    setNewCart(
-      newCart.map((item) =>
-        item.productID === id
-          ? { ...item, checked: !item.checked }
-          : item
-      )
-    );
+  const handleChangeQuantity = (
+    e: ChangeEvent<HTMLInputElement>
+  ) => {
+    const cartId = parseInt(e.target.name);
+    const value = parseInt(e.target.value);
+    if (isNaN(value) || isNaN(cartId)) {
+      toast.warning("Number");
+    } else {
+      UpdateQuantityMutation.mutate({
+        cartId: cartId,
+        quantity: value,
+      });
+    }
   };
 
-  const handleRemove = (id: number) => {
-    removeFromCart(id);
+  const handleChecked = (
+    e: ChangeEvent<HTMLInputElement>
+  ) => {
+    let id = parseInt(e.target.name);
+    if (e.target.checked === true) {
+      setNewCart(
+        newCart?.map((item) =>
+          item.cartId === id
+            ? { ...item, checked: true }
+            : item
+        )
+      );
+    } else {
+      setNewCart(
+        newCart?.map((item) =>
+          item.cartId === id
+            ? { ...item, checked: false }
+            : item
+        )
+      );
+    }
   };
+
+  const handleOrder = async () => {
+    if (User) {
+      let hasChecked = newCart?.some(
+        (item) => item.checked === true
+      );
+      if (hasChecked) {
+        const getOrderId = await createOrder(User.userId);
+        if (getOrderId) {
+          let checkedList = newCart?.filter((item) => {
+            return item.checked === true;
+          });
+          const data: OrderDetail = {
+            List: checkedList,
+            orderId: getOrderId.orderId,
+          };
+          CreateOrderDetailMutation.mutate(data);
+          checkedList?.forEach((item) => {
+            removeItemMutation.mutate(item.cartId);
+          });
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    setNewCart(
+      Carts?.map((item) => {
+        return { ...item, checked: false };
+      })
+    );
+  }, [Carts]);
+  useEffect(() => {
+    if (!User) {
+      router.push("/account");
+    }
+  }, [User, router]);
+
   return (
     <div>
       <div className="relative">
         <Image
           src={img}
           alt="Cart background"
-          className="w-full"
+          className="w-full min-h-[200px]"
         />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
           <div>
@@ -112,32 +216,41 @@ function CartPage() {
                 </tr>
               </thead>
               <tbody>
-                {newCart.map((item) => (
-                  <tr key={item.productID}>
+                {newCart?.map((item: Item) => (
+                  <tr key={item.cartId}>
                     <td className="text-center">
                       <input
                         type="checkbox"
+                        name={item.cartId.toString()}
                         checked={item.checked}
-                        onChange={() =>
-                          handleChecked(item.productID)
-                        }
+                        onChange={handleChecked}
                       />
                     </td>
-                    <td className="flex flex-wrap items-center my-6">
+                    <td className="flex flex-wrap md:flex-col sm:flex-col xs:flex-col items-center my-6">
                       <Image
-                        src={product}
+                        src={
+                          SERVER_NAME +
+                          item.product.photos[0].url
+                        }
                         alt="Logo"
                         className="w-[100px]"
+                        width={100}
+                        height={100}
                       />
                       <span className="ml-4">
-                        {item.productName}
+                        {item.product.productName}
                       </span>
                     </td>
-                    <td className="my-6">{item.price}</td>
                     <td className="my-6">
+                      {item.product.price}
+                    </td>
+                    <td className="my-6 ">
                       <button
                         onClick={() =>
-                          handleDecrement(item.productID)
+                          UpdateQuantityMutation.mutate({
+                            cartId: item.cartId,
+                            quantity: item.quantity - 1,
+                          })
                         }
                         className="text-xl border-[1px] px-2 rounded"
                       >
@@ -145,13 +258,17 @@ function CartPage() {
                       </button>
                       <input
                         type="text"
-                        name="quantity"
+                        name={item.cartId.toString()}
                         value={item.quantity}
                         className="border-none outline-none px-4 py-2 w-20 text-center"
+                        onChange={handleChangeQuantity}
                       />
                       <button
                         onClick={() =>
-                          handleIncrement(item.productID)
+                          UpdateQuantityMutation.mutate({
+                            cartId: item.cartId,
+                            quantity: item.quantity + 1,
+                          })
                         }
                         className="text-xl border-[1px] px-2 rounded"
                       >
@@ -159,12 +276,14 @@ function CartPage() {
                       </button>
                     </td>
                     <td className="my-6">
-                      {item.price * item.quantity}
+                      {item.product.price * item.quantity}
                     </td>
                     <td className="text-xl text-primary">
                       <button
                         onClick={() =>
-                          handleRemove(item.productID)
+                          removeItemMutation.mutate(
+                            item.cartId
+                          )
                         }
                       >
                         <MdDelete />
@@ -183,10 +302,11 @@ function CartPage() {
               <div className="w-1/2 flex justify-between mb-4 lg:w-full md:w-full sm:w-full xs:w-full">
                 <p>Subtotal</p>{" "}
                 <p>
-                  {newCart.reduce(
+                  {newCart?.reduce(
                     (acc, item) =>
                       item.checked
-                        ? acc + item.price * item.quantity
+                        ? acc +
+                          item.product.price * item.quantity
                         : acc,
                     0
                   )}
@@ -195,17 +315,34 @@ function CartPage() {
               <div className="w-1/2 flex justify-between mb-6 lg:w-full md:w-full sm:w-full xs:w-full">
                 <p>Total</p>{" "}
                 <p>
-                  {newCart.reduce(
+                  {newCart?.reduce(
                     (acc, item) =>
                       item.checked
-                        ? acc + item.price * item.quantity
+                        ? acc +
+                          item.product.price * item.quantity
                         : acc,
                     0
                   )}
                 </p>
               </div>
-              <button className="py-2 px-6 border-[1px] border-black rounded-xl mb-10">
-                Check Out
+              <button
+                className={`py-2 px-6 border-[1px] border-black rounded-xl mb-10 hover:bg-primary hover:text-white ${
+                  newCart?.some(
+                    (item) => item.checked === true
+                  )
+                    ? ""
+                    : "hover:bg-inherit hover:text-black opacity-50"
+                }`}
+                onClick={handleOrder}
+                disabled={
+                  newCart?.some(
+                    (item) => item.checked === true
+                  )
+                    ? false
+                    : true
+                }
+              >
+                Order
               </button>
             </div>
           </div>

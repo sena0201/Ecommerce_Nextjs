@@ -1,3 +1,4 @@
+import { UserStore } from "@/store/user";
 import Link from "next/link";
 import { CiSearch } from "react-icons/ci";
 
@@ -7,6 +8,12 @@ interface IProps {
 
 function MobileNavbar(props: IProps) {
   const { handleOpenNavbar } = props;
+  const User = UserStore((state) => state.user);
+  const Logout = UserStore((state) => state.Logout);
+  const handleLogout = () => {
+    Logout();
+    handleOpenNavbar();
+  };
   return (
     <nav className="absolute top-[100px] left-0 w-full bottom-0 bg-opacity-50 bg-black z-50">
       <ul className="w-full h-fit bg-primary py-4">
@@ -68,15 +75,27 @@ function MobileNavbar(props: IProps) {
             Wishlist
           </Link>
         </li>
-        <li>
-          <Link
-            href={"/account"}
-            className="block py-2 text-white ps-5 hover:bg-white hover:text-primary"
-            onClick={handleOpenNavbar}
-          >
-            Account
-          </Link>
-        </li>
+        {!User && (
+          <li>
+            <Link
+              href={"/account"}
+              className="block py-2 text-white ps-5 hover:bg-white hover:text-primary"
+              onClick={handleOpenNavbar}
+            >
+              Login
+            </Link>
+          </li>
+        )}
+        {User && (
+          <li>
+            <button
+              className="block py-2 text-white ps-5 hover:bg-white hover:text-primary"
+              onClick={handleLogout}
+            >
+              Log out
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
   );

@@ -4,10 +4,12 @@ import { ChangeEvent, useState } from "react";
 import axios from "../../Api/axiosConfig";
 import { SubmitHandler, useForm } from "react-hook-form";
 import Image from "next/image";
+import { UserStore } from "@/store/user";
 
 function ContactPage() {
   const { register, handleSubmit } = useForm();
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const User = UserStore((state) => state.user);
   // const onSubmit = async (data: any) => {
   //   console.log(data.photo[0]);
   //   let formData = new FormData();
@@ -31,25 +33,7 @@ function ContactPage() {
     }
   };
 
-  return (
-    <div>
-      Contactpage{" "}
-      <form>
-        <input type="file" onChange={handleChange} />
-        <div>
-          {imgUrl && (
-            <Image
-              src={imgUrl}
-              alt=""
-              width={100}
-              height={100}
-            />
-          )}
-        </div>
-        <button>upload</button>
-      </form>
-    </div>
-  );
+  return <div>Contactpage</div>;
 }
 
 export default ContactPage;

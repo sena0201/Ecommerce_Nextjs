@@ -1,7 +1,9 @@
 "use client";
 
-import { ProductOfCart } from "@/store/cart";
-import { Product } from "@/types/product";
+import { User } from "@/store/user";
+import { CartType } from "@/types/cart/cart.type";
+import { UseMutationResult } from "@tanstack/react-query";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   BsArrowLeftRight,
@@ -10,35 +12,61 @@ import {
 import { FaRegHeart } from "react-icons/fa";
 import { FaArrowRightLong } from "react-icons/fa6";
 import { IoMdShare } from "react-icons/io";
+import { toast } from "react-toastify";
 
-type Item = Product & {
-  AddToCart: (product: ProductOfCart) => void;
+type PropType = {
+  productID: number;
+  productName: string;
+  description: string;
+  price: number;
+  isNew: boolean;
+  photo: string;
+  user: User | null;
+  AddToCartMutation?: UseMutationResult<
+    any,
+    Error,
+    Omit<CartType, "cartId" | "product">,
+    unknown
+  >;
 };
 
-function ItemHorizontal(props: Item) {
+function ItemHorizontal(props: PropType) {
   const router = useRouter();
   const {
     productID,
     productName,
+    description,
     price,
-    discount,
     isNew,
-    AddToCart,
+    photo,
+    user,
+    AddToCartMutation,
   } = props;
   const handleAddToCart = () => {
-    AddToCart({
-      productID: productID,
-      productName: productName,
-      price: price,
-      quantity: 1,
-    });
+    if (user) {
+      AddToCartMutation?.mutate({
+        productId: productID,
+        userId: user?.userId as number,
+        quantity: 1,
+      });
+    } else {
+      toast.warning("Login please!");
+    }
   };
   const handleClick = (productId: number) => {
     router.push(`/shop/product/${productId}`);
   };
   return (
     <div className="flex mb-5">
-      <div className="w-1/5 max-w-[300px] h-[300px] bg-primary"></div>
+      <div className="">
+        <Image
+          src={photo}
+          alt="product-image"
+          width={100}
+          height={100}
+          className="w-[300px] h-[300px]"
+        />
+      </div>
       <div className="flex-1 px-5 py-5 border-t-[1px] border-r-[1px] border-b-[1px]">
         <div className="flex justify-between items-center">
           <div>
@@ -57,7 +85,7 @@ function ItemHorizontal(props: Item) {
               <BsCartPlus />
               <span>Add To Cart</span>
             </button>
-            <div className="flex gap-4 mt-5">
+            {/* <div className="flex gap-4 mt-5">
               <button className="flex gap-1 items-center font-semibold text-base">
                 <IoMdShare />
                 Share
@@ -70,7 +98,7 @@ function ItemHorizontal(props: Item) {
                 <FaRegHeart />
                 Like
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
         <div className="text-end mt-28">
@@ -78,7 +106,7 @@ function ItemHorizontal(props: Item) {
             <span className="line-through opacity-50 mr-5">
               Rp 3,500.00
             </span>
-            {price}
+            {price.toLocaleString("vi-VN")}
           </div>
           <div className="grid place-content-end mt-2">
             <button
